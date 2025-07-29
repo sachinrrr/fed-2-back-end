@@ -1,11 +1,12 @@
 import express from "express";
 import {
-  createProduct,
-  deleteProductById,
   getAllProducts,
+  createProduct,
   getProductById,
   updateProductById,
+  deleteProductById,
 } from "../application/product.js";
+import isAuthenticated from "./middleware/authentication-middleware.js";
 
 const productRouter = express.Router();
 
