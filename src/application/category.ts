@@ -1,5 +1,4 @@
 import Category from "../infrastructure/db/entities/Category";
-
 import ValidationError from "../domain/errors/validation-error";
 import NotFoundError from "../domain/errors/not-found-error";
 
