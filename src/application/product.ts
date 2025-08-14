@@ -8,6 +8,7 @@ import { randomUUID } from "crypto";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import S3 from "../infrastructure/s3";
+import stripe from "../infrastructure/stripe";
 
 const getAllProducts = async (
   req: Request,
@@ -28,6 +29,39 @@ const getAllProducts = async (
   }
 };
 
+const getProductsForSearchQuery = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { search } = req.query;
+    const results = await Product.aggregate([
+      {
+        $search: {
+          index: "default",
+          autocomplete: {
+            path: "name",
+            query: search,
+            tokenOrder: "any",
+            fuzzy: {
+              maxEdits: 1,
+              prefixLength: 2,
+              maxExpansions: 256,
+            },
+          },
+          highlight: {
+            path: "name",
+          },
+        },
+      },
+    ]);
+    res.json(results);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createProduct = async (
   req: Request,
   res: Response,
@@ -39,7 +73,16 @@ const createProduct = async (
       throw new ValidationError(result.error.message);
     }
 
-    await Product.create(result.data);
+    const stripeProduct = await stripe.products.create({
+      name: result.data.name,
+      description: result.data.description,
+      default_price_data: {
+        currency: "usd",
+        unit_amount: result.data.price * 100,
+      },
+    });
+
+    await Product.create({ ...result.data, stripePriceId: stripeProduct.default_price });
     res.status(201).send();
   } catch (error) {
     next(error);
@@ -119,12 +162,10 @@ const uploadProductImage = async (
       }
     );
 
-    res
-      .status(200)
-      .json({
-        url,
-        publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${id}`,
-      });
+    res.status(200).json({
+      url,
+      publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${id}`,
+    });
   } catch (error) {
     next(error);
   }
@@ -136,5 +177,6 @@ export {
   getAllProducts,
   getProductById,
   updateProductById,
+  getProductsForSearchQuery,
   uploadProductImage,
 };
