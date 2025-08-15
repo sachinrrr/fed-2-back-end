@@ -2,7 +2,6 @@ import "dotenv/config";
 import { connectDB } from "./index";
 import Category from "./entities/Category";
 import Product from "./entities/Product";
-import stripe from "../stripe";
 
 const CATEGORY_NAMES = ["Socks", "Pants", "T-shirts", "Shoes", "Shorts"];
 
@@ -24,29 +23,13 @@ function getRandomName(categoryName: string) {
 const createProductsForCategory = async (categoryId: any, categoryName: string) => {
   const products = [];
   for (let i = 0; i < 10; i++) {
-
-    const name = getRandomName(categoryName);
-    const description = `This is a ${categoryName} that is ${name}`;
-    const price = Math.floor(Math.random() * 100) + 10;
-
-    const stripeProduct = await stripe.products.create({
-      name: name,
-      description: description,
-      default_price_data: {
-        currency: "usd",
-        unit_amount: price * 100,
-      },
-    });
-
     products.push({
       categoryId,
-      name: name,
-      price: price,
-      description: description,
+      name: getRandomName(categoryName),
+      price: Math.floor(Math.random() * 100) + 10,
       image: `https://via.placeholder.com/150?text=${encodeURIComponent(categoryName)}`,
       stock: Math.floor(Math.random() * 50) + 1,
       reviews: [],
-      stripePriceId: stripeProduct.default_price
     });
   }
   await Product.insertMany(products);

@@ -8,7 +8,6 @@ import { randomUUID } from "crypto";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import S3 from "../infrastructure/s3";
-import stripe from "../infrastructure/stripe";
 
 const getAllProducts = async (
   req: Request,
@@ -73,16 +72,7 @@ const createProduct = async (
       throw new ValidationError(result.error.message);
     }
 
-    const stripeProduct = await stripe.products.create({
-      name: result.data.name,
-      description: result.data.description,
-      default_price_data: {
-        currency: "usd",
-        unit_amount: result.data.price * 100,
-      },
-    });
-
-    await Product.create({ ...result.data, stripePriceId: stripeProduct.default_price });
+    await Product.create(result.data);
     res.status(201).send();
   } catch (error) {
     next(error);
