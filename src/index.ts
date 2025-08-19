@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import productRouter from "./api/product";
 import categoryRouter from "./api/category";
+import colorRouter from "./api/color";
 import reviewRouter from "./api/review";
 import { connectDB } from "./infrastructure/db/index";
 import globalErrorHandlingMiddleware from "./api/middleware/global-error-handling-middleware";
@@ -24,6 +25,7 @@ app.use(cors({ origin: "http://localhost:5173" }));
 
 app.use("/api/products", productRouter);
 app.use("/api/categories", categoryRouter);
+app.use("/api/colors", colorRouter);
 app.use("/api/reviews", reviewRouter);
 app.use("/api/orders", orderRouter);
 

@@ -1,7 +1,6 @@
 import Product from "../infrastructure/db/entities/Product";
 import ValidationError from "../domain/errors/validation-error";
 import NotFoundError from "../domain/errors/not-found-error";
-
 import { Request, Response, NextFunction } from "express";
 import { CreateProductDTO } from "../domain/dto/product";
 import { randomUUID } from "crypto";
@@ -15,14 +14,40 @@ const getAllProducts = async (
   next: NextFunction
 ) => {
   try {
-    const categoryId = req.query.categoryId;
-    if (categoryId) {
-      const products = await Product.find({ categoryId });
-      res.json(products);
-    } else {
-      const products = await Product.find();
-      res.json(products);
+    // Extract query parameters for filtering and sorting
+    const { 
+      categoryId, 
+      colorId, 
+      sortBy = 'name', 
+      sortOrder = 'asc' 
+    } = req.query;
+
+    // Build filter object
+    const filter: any = {};
+    
+    if (categoryId && categoryId !== 'all') {
+      filter.categoryId = categoryId;
     }
+    
+    if (colorId && colorId !== 'all') {
+      filter.colorId = colorId;
+    }
+
+    // Build sort object
+    const sort: any = {};
+    const validSortFields = ['name', 'price', 'createdAt'];
+    const sortField = validSortFields.includes(sortBy as string) ? sortBy : 'name';
+    const order = sortOrder === 'desc' ? -1 : 1;
+    sort[sortField as string] = order;
+
+    // Execute query with filtering, sorting, and population
+    const products = await Product.find(filter)
+      .populate('categoryId', 'name')
+      .populate('colorId', 'name hexCode')
+      .sort(sort)
+      .lean();
+
+    res.json(products);
   } catch (error) {
     next(error);
   }
@@ -135,28 +160,36 @@ const uploadProductImage = async (
   next: NextFunction
 ) => {
   try {
-    const body = req.body;
-    const { fileType } = body;
+    const { fileType, fileName } = req.body;
 
-    const id = randomUUID();
+    if (!fileType || !fileName) {
+      throw new ValidationError("fileType and fileName are required");
+    }
 
+    // Generate a unique filename with extension
+    const extension = fileName.split('.').pop();
+    const uniqueFileName = `${randomUUID()}.${extension}`;
+
+    // Get signed URL for upload
     const url = await getSignedUrl(
       S3,
       new PutObjectCommand({
         Bucket: process.env.CLOUDFLARE_BUCKET_NAME,
-        Key: id,
+        Key: uniqueFileName,
         ContentType: fileType,
       }),
       {
-        expiresIn: 60,
+        expiresIn: 3600, // 1 hour
       }
     );
 
+    // Return both the upload URL and the public URL
     res.status(200).json({
       url,
-      publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${id}`,
+      publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${uniqueFileName}`,
     });
   } catch (error) {
+    console.error("Image upload error:", error);
     next(error);
   }
 };
