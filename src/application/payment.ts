@@ -10,8 +10,10 @@ const FRONTEND_URL = process.env.FRONTEND_URL as string;
 interface Product {
   _id: string;
   stock: number;
-  stripePriceId: string;
+  stripePriceId?: string;
   name: string;
+  description?: string;
+  price: number;
 }
 
 async function fulfillCheckout(sessionId: string) {
@@ -94,29 +96,74 @@ export const handleWebhook = async (req: Request, res: Response) => {
 };
 
 export const createCheckoutSession = async (req: Request, res: Response) => {
-  const orderId = req.body.orderId;
-  console.log("body", req.body);
-  const order = await Order.findById(orderId).populate<{
-    items: { productId: Product; quantity: number }[];
-  }>("items.productId");
+  try {
+    const orderId = req.body.orderId;
+    console.log("Creating checkout session for order:", orderId);
+    
+    if (!orderId) {
+      return res.status(400).json({ error: "Order ID is required" });
+    }
 
-  if (!order) {
-    throw new Error("Order not found");
+    const order = await Order.findById(orderId).populate<{
+      items: { productId: Product; quantity: number }[];
+    }>("items.productId");
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    console.log("Order found with items:", order.items.length);
+
+    // For products without stripePriceId, create dynamic price objects
+    const lineItems = [];
+    
+    for (const item of order.items) {
+      const product = item.productId;
+      console.log(`Processing product: ${product.name}, stripePriceId: ${product.stripePriceId}`);
+      
+      if (product.stripePriceId) {
+        // Use existing Stripe price ID
+        lineItems.push({
+          price: product.stripePriceId,
+          quantity: item.quantity,
+        });
+      } else {
+        // Create dynamic price for products without stripePriceId
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: product.name,
+              description: product.description || `${product.name} - High quality product`,
+            },
+            unit_amount: Math.round(product.price * 100), // Convert to cents
+          },
+          quantity: item.quantity,
+        });
+      }
+    }
+
+    console.log("Creating Stripe session with line items:", lineItems.length);
+
+    const session = await stripe.checkout.sessions.create({
+      ui_mode: "embedded",
+      line_items: lineItems,
+      mode: "payment",
+      return_url: `${FRONTEND_URL}/shop/complete?session_id={CHECKOUT_SESSION_ID}`,
+      metadata: {
+        orderId: req.body.orderId,
+      },
+    });
+
+    console.log("Stripe session created successfully");
+    res.send({ clientSecret: session.client_secret });
+  } catch (error) {
+    console.error("Error creating checkout session:", error);
+    res.status(500).json({ 
+      error: "Failed to create checkout session", 
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
-  const session = await stripe.checkout.sessions.create({
-    ui_mode: "embedded",
-    line_items: order.items.map((item) => ({
-      price: item.productId.stripePriceId,
-      quantity: item.quantity,
-    })),
-    mode: "payment",
-    return_url: `${FRONTEND_URL}/shop/complete?session_id={CHECKOUT_SESSION_ID}`,
-    metadata: {
-      orderId: req.body.orderId,
-    },
-  });
-
-  res.send({ clientSecret: session.client_secret });
 };
 
 export const retrieveSessionStatus = async (req: Request, res: Response) => {

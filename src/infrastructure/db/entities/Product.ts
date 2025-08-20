@@ -32,6 +32,10 @@ const productSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  stripePriceId: {
+    type: String,
+    required: false, // Making it optional initially
+  },
   reviews: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: "Review",
