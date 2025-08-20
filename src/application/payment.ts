@@ -106,19 +106,36 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
 
     const order = await Order.findById(orderId).populate<{
       items: { productId: Product; quantity: number }[];
-    }>("items.productId");
+    }>({
+      path: "items.productId",
+      select: "name description price stripePriceId stock" // Only select needed fields
+    });
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
 
     console.log("Order found with items:", order.items.length);
+    
+    // Check if order has items
+    if (!order.items || order.items.length === 0) {
+      return res.status(400).json({ error: "Order has no items" });
+    }
 
     // For products without stripePriceId, create dynamic price objects
     const lineItems = [];
     
     for (const item of order.items) {
       const product = item.productId;
+      
+      // Check if product exists (not null/undefined)
+      if (!product) {
+        console.error(`Product not found for item in order ${orderId}`);
+        return res.status(400).json({ 
+          error: "One or more products in the order are no longer available" 
+        });
+      }
+      
       console.log(`Processing product: ${product.name}, stripePriceId: ${product.stripePriceId}`);
       
       if (product.stripePriceId) {
