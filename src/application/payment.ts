@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import util from "util";
 import Order from "../infrastructure/db/entities/Order";
 import stripe from "../infrastructure/stripe";
@@ -71,31 +71,30 @@ async function fulfillCheckout(sessionId: string) {
   }
 }
 
-export const handleWebhook = async (req: Request, res: Response) => {
-  const payload = req.body;
-  const sig = req.headers["stripe-signature"] as string;
-
-  let event;
-
+export const handleWebhook = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    event = stripe.webhooks.constructEvent(payload, sig, endpointSecret);
+    const payload = req.body;
+    const sig = req.headers["stripe-signature"] as string;
+
+    const event = stripe.webhooks.constructEvent(payload, sig, endpointSecret);
+    
     if (
       event.type === "checkout.session.completed" ||
       event.type === "checkout.session.async_payment_succeeded"
     ) {
       await fulfillCheckout(event.data.object.id);
-
       res.status(200).send();
       return;
     }
-  } catch (err) {
-    // @ts-ignore
-    res.status(400).send(`Webhook Error: ${err.message}`);
-    return;
+    
+    res.status(200).send(); // Acknowledge other webhook events
+  } catch (error) {
+    console.error("Webhook error:", error);
+    res.status(400).send(`Webhook Error: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
-export const createCheckoutSession = async (req: Request, res: Response) => {
+export const createCheckoutSession = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderId = req.body.orderId;
     console.log("Creating checkout session for order:", orderId);
@@ -176,14 +175,11 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
     res.send({ clientSecret: session.client_secret });
   } catch (error) {
     console.error("Error creating checkout session:", error);
-    res.status(500).json({ 
-      error: "Failed to create checkout session", 
-      details: error instanceof Error ? error.message : String(error)
-    });
+    next(error);
   }
 };
 
-export const retrieveSessionStatus = async (req: Request, res: Response) => {
+export const retrieveSessionStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sessionId = req.query.session_id as string;
     
@@ -207,9 +203,6 @@ export const retrieveSessionStatus = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error retrieving session status:", error);
-    res.status(500).json({ 
-      error: "Failed to retrieve session status", 
-      details: error instanceof Error ? error.message : String(error)
-    });
+    next(error);
   }
 };
