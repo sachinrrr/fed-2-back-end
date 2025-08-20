@@ -16,7 +16,19 @@ const app = express();
 app.use(express.json()); //It conversts the incomign json payload of a  request into a javascript object found in req.body
 
 app.use(clerkMiddleware());
-app.use(cors({ origin: "http://localhost:5173" }));
+
+// CORS configuration to handle both local development and production
+const allowedOrigins: string[] = [
+  "http://localhost:5173", // Local development
+  "http://localhost:3000", // Alternative local port
+  "https://fed-mebius.netlify.app", // Production frontend
+  process.env.FRONTEND_URL || "" // Environment variable fallback
+].filter((origin): origin is string => Boolean(origin)); // Remove any empty strings
+
+app.use(cors({ 
+  origin: allowedOrigins,
+  credentials: true // Allow credentials if needed
+}));
 
 // app.use((req, res, next) => {
 //   console.log("Hello from pre-middleware");
