@@ -8,7 +8,6 @@ import { connectDB } from "./infrastructure/db/index";
 import globalErrorHandlingMiddleware from "./api/middleware/global-error-handling-middleware";
 import cors from "cors";
 import { orderRouter } from "./api/order";
-import { paymentsRouter } from "./api/payment";
 import { clerkMiddleware } from "@clerk/express";
 
 const app = express();
@@ -41,7 +40,6 @@ app.use("/api/categories", categoryRouter);
 app.use("/api/colors", colorRouter);
 app.use("/api/reviews", reviewRouter);
 app.use("/api/orders", orderRouter);
-app.use("/api/payments", paymentsRouter);
 
 app.use(globalErrorHandlingMiddleware);
 
