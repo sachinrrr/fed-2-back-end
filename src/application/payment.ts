@@ -2,12 +2,12 @@ import { Request, Response } from "express";
 import util from "util";
 import Order from "../infrastructure/db/entities/Order";
 import stripe from "../infrastructure/stripe";
-import Product from "../infrastructure/db/entities/Product";
+import ProductModel from "../infrastructure/db/entities/Product";
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 const FRONTEND_URL = process.env.FRONTEND_URL as string;
 
-interface Product {
+interface ProductType {
   _id: string;
   stock: number;
   stripePriceId?: string;
@@ -38,7 +38,7 @@ async function fulfillCheckout(sessionId: string) {
   const order = await Order.findById(
     checkoutSession.metadata?.orderId
   ).populate<{
-    items: { productId: Product; quantity: number }[];
+    items: { productId: ProductType; quantity: number }[];
   }>("items.productId");
   if (!order) {
     throw new Error("Order not found");
@@ -59,7 +59,7 @@ async function fulfillCheckout(sessionId: string) {
     //  Record/save fulfillment status for this
     order.items.forEach(async (item) => {
       const product = item.productId;
-      await Product.findByIdAndUpdate(product._id, {
+      await ProductModel.findByIdAndUpdate(product._id, {
         $inc: { stock: -item.quantity },
       });
     });
@@ -105,7 +105,7 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
     }
 
     const order = await Order.findById(orderId).populate<{
-      items: { productId: Product; quantity: number }[];
+      items: { productId: ProductType; quantity: number }[];
     }>({
       path: "items.productId",
       select: "name description price stripePriceId stock" // Only select needed fields
@@ -184,20 +184,32 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
 };
 
 export const retrieveSessionStatus = async (req: Request, res: Response) => {
-  const checkoutSession = await stripe.checkout.sessions.retrieve(
-    req.query.session_id as string
-  );
+  try {
+    const sessionId = req.query.session_id as string;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: "Session ID is required" });
+    }
 
-  const order = await Order.findById(checkoutSession.metadata?.orderId);
-  if (!order) {
-    throw new Error("Order not found");
+    const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
+
+    const order = await Order.findById(checkoutSession.metadata?.orderId);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.status(200).json({
+      orderId: order._id,
+      status: checkoutSession.status,
+      customer_email: checkoutSession.customer_details?.email,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.paymentStatus,
+    });
+  } catch (error) {
+    console.error("Error retrieving session status:", error);
+    res.status(500).json({ 
+      error: "Failed to retrieve session status", 
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
-
-  res.status(200).json({
-    orderId: order._id,
-    status: checkoutSession.status,
-    customer_email: checkoutSession.customer_details?.email,
-    orderStatus: order.orderStatus,
-    paymentStatus: order.paymentStatus,
-  });
 };
