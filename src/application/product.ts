@@ -92,14 +92,22 @@ const createProduct = async (
   next: NextFunction
 ) => {
   try {
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    
     const result = CreateProductDTO.safeParse(req.body);
     if (!result.success) {
+      console.log("Validation error:", result.error);
       throw new ValidationError(result.error.message);
     }
 
-    await Product.create(result.data);
+    console.log("Validated data:", JSON.stringify(result.data, null, 2));
+    
+    const product = await Product.create(result.data);
+    console.log("Product created:", product);
+    
     res.status(201).send();
   } catch (error) {
+    console.log("Create product error:", error);
     next(error);
   }
 };
@@ -165,6 +173,8 @@ const uploadProductImage = async (
     if (!fileType || !fileName) {
       throw new ValidationError("fileType and fileName are required");
     }
+
+
 
     // Generate a unique filename with extension
     const extension = fileName.split('.').pop();

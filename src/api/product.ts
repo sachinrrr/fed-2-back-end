@@ -16,7 +16,7 @@ const productRouter = express.Router();
 productRouter
   .route("/")
   .get(getAllProducts)
-  .post(isAuthenticated, isAdmin, createProduct);
+  .post(isAuthenticated, createProduct);
 
 productRouter.get("/search", getProductsForSearchQuery);
 
@@ -28,6 +28,6 @@ productRouter
 
 productRouter
   .route("/images")
-  .post(uploadProductImage);
+  .post(isAuthenticated, uploadProductImage);
 
 export default productRouter;
