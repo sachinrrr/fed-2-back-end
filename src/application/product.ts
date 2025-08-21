@@ -118,7 +118,10 @@ const getProductById = async (
   next: NextFunction
 ) => {
   try {
-    const product = await Product.findById(req.params.id).populate("reviews");
+    const product = await Product.findById(req.params.id)
+      .populate("categoryId", "name")
+      .populate("colorId", "name hexCode")
+      .populate("reviews");
     if (!product) {
       throw new NotFoundError("Product not found");
     }
