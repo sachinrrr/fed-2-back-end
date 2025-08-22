@@ -25,11 +25,17 @@ const createOrder = async (req: Request, res: Response, next: NextFunction) => {
 
 const getOrder = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = "123";
+    const { userId } = getAuth(req);
 
     const orderId = req.params.id;
 
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId)
+      .populate({
+        path: 'items.productId',
+        select: 'name price image'
+      })
+      .populate('addressId');
+      
     if (!order) {
       throw new NotFoundError("Order not found");
     }
@@ -44,4 +50,38 @@ const getOrder = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
-export { createOrder, getOrder };
+const getUserOrders = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = getAuth(req);
+
+    const orders = await Order.find({ userId })
+      .populate({
+        path: 'items.productId',
+        select: 'name price image'
+      })
+      .populate('addressId')
+      .sort({ createdAt: -1 }); // Most recent first
+
+    res.status(200).json(orders);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllOrders = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orders = await Order.find()
+      .populate({
+        path: 'items.productId',
+        select: 'name price image'
+      })
+      .populate('addressId')
+      .sort({ createdAt: -1 }); // Most recent first
+
+    res.status(200).json(orders);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export { createOrder, getOrder, getUserOrders, getAllOrders };

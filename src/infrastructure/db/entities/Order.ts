@@ -38,6 +38,8 @@ const OrderSchema = new mongoose.Schema({
     enum: ["PENDING", "PAID", "REFUNDED"],
     default: "PENDING",
   },
+}, {
+  timestamps: true, // This adds createdAt and updatedAt fields
 });
 
 const Order = mongoose.model("Order", OrderSchema);
