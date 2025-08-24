@@ -1,4 +1,5 @@
 import Product from "../infrastructure/db/entities/Product";
+import Order from "../infrastructure/db/entities/Order";
 import ValidationError from "../domain/errors/validation-error";
 import NotFoundError from "../domain/errors/not-found-error";
 import { Request, Response, NextFunction } from "express";
@@ -7,6 +8,7 @@ import { randomUUID } from "crypto";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import S3 from "../infrastructure/s3";
+import mongoose from "mongoose";
 
 const getAllProducts = async (
   req: Request,
@@ -207,6 +209,148 @@ const uploadProductImage = async (
   }
 };
 
+const getTrendingProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { categoryId, limit = 8 } = req.query;
+
+    console.log("Getting trending products...", { categoryId, limit });
+
+    // Aggregate orders to count product purchases
+    let trendingAggregation = [
+      // Match only paid orders
+      {
+        $match: {
+          paymentStatus: "PAID"
+        }
+      },
+      // Unwind the items array to process each item separately
+      {
+        $unwind: "$items"
+      }
+    ];
+
+    // Add category filtering if specified
+    if (categoryId && categoryId !== "ALL" && categoryId !== "") {
+      trendingAggregation.push(
+        // Lookup product details early for category filtering
+        {
+          $lookup: {
+            from: "products",
+            localField: "items.productId",
+            foreignField: "_id",
+            as: "productInfo"
+          }
+        },
+        // Match products by category
+        {
+          $match: {
+            "productInfo.categoryId": new mongoose.Types.ObjectId(categoryId as string)
+          }
+        }
+      );
+    }
+
+    // Continue with grouping and sorting
+    trendingAggregation.push(
+      // Group by productId and sum quantities
+      {
+        $group: {
+          _id: "$items.productId",
+          totalOrdered: {
+            $sum: "$items.quantity"
+          },
+          orderCount: {
+            $sum: 1
+          }
+        }
+      },
+      // Sort by total ordered quantity (most ordered first)
+      {
+        $sort: {
+          totalOrdered: -1
+        }
+      },
+      // Limit results
+      {
+        $limit: parseInt(limit as string) * 2 // Get more than needed in case some products don't exist
+      },
+      // Lookup product details
+      {
+        $lookup: {
+          from: "products",
+          localField: "_id",
+          foreignField: "_id",
+          as: "product"
+        }
+      },
+      // Unwind product details
+      {
+        $unwind: "$product"
+      },
+      // Add the order stats to the product
+      {
+        $addFields: {
+          "product.totalOrdered": "$totalOrdered",
+          "product.orderCount": "$orderCount"
+        }
+      },
+      // Replace root with product
+      {
+        $replaceRoot: {
+          newRoot: "$product"
+        }
+      }
+    );
+
+    const trendingProducts = await Order.aggregate(trendingAggregation);
+
+    console.log(`Found ${trendingProducts.length} trending products`);
+
+    // Populate category and color information
+    const populatedProducts = await Product.populate(trendingProducts, [
+      { path: 'categoryId', select: 'name' },
+      { path: 'colorId', select: 'name hexCode' }
+    ]);
+
+    // Limit to requested number
+    let limitedProducts = populatedProducts.slice(0, parseInt(limit as string));
+
+    // If we don't have enough trending products, fill with regular products
+    if (limitedProducts.length < parseInt(limit as string)) {
+      console.log(`Only found ${limitedProducts.length} trending products, filling with regular products...`);
+      
+      const existingProductIds = limitedProducts.map(p => p._id.toString());
+      const additionalProductsNeeded = parseInt(limit as string) - limitedProducts.length;
+      
+      const filter: any = {
+        _id: { $nin: existingProductIds.map(id => new mongoose.Types.ObjectId(id)) }
+      };
+      
+      if (categoryId && categoryId !== "ALL" && categoryId !== "") {
+        filter.categoryId = new mongoose.Types.ObjectId(categoryId as string);
+      }
+
+      const additionalProducts = await Product.find(filter)
+        .populate('categoryId', 'name')
+        .populate('colorId', 'name hexCode')
+        .limit(additionalProductsNeeded)
+        .lean();
+
+      limitedProducts = [...limitedProducts, ...additionalProducts];
+    }
+
+    console.log(`Returning ${limitedProducts.length} trending products`);
+    res.json(limitedProducts);
+  } catch (error) {
+    console.error("Error getting trending products:", error);
+    next(error);
+  }
+};
+
 export {
   createProduct,
   deleteProductById,
@@ -215,4 +359,5 @@ export {
   updateProductById,
   getProductsForSearchQuery,
   uploadProductImage,
+  getTrendingProducts,
 };

@@ -7,6 +7,7 @@ import {
   deleteProductById,
   uploadProductImage,
   getProductsForSearchQuery,
+  getTrendingProducts,
 } from "../application/product";
 import isAuthenticated from "./middleware/authentication-middleware";
 import { isAdmin } from "./middleware/authorization-middleware";
@@ -19,6 +20,8 @@ productRouter
   .post(isAuthenticated, createProduct);
 
 productRouter.get("/search", getProductsForSearchQuery);
+
+productRouter.get("/trending", getTrendingProducts);
 
 productRouter
   .route("/:id")
