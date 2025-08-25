@@ -28,13 +28,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Allow necessary headers
 }));
 
-// Add payment routes BEFORE express.json() middleware (for Stripe webhooks)
+app.use(clerkMiddleware());
+
+// Add payment routes (webhook handles its own raw body parsing)
 app.use("/api/payments", paymentRouter);
 
 // Middleware to parse JSON bodies
 app.use(express.json()); //It conversts the incomign json payload of a  request into a javascript object found in req.body
-
-app.use(clerkMiddleware());
 
 // app.use((req, res, next) => {
 //   console.log("Hello from pre-middleware");
