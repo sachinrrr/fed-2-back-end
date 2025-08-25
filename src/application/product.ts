@@ -173,52 +173,17 @@ const uploadProductImage = async (
   next: NextFunction
 ) => {
   try {
-    console.log("Upload image request received:", {
-      body: req.body,
-      hasAuth: !!req.auth,
-      authData: req.auth
-    });
-
-    // Check all required environment variables
-    const requiredEnvVars = [
-      'CLOUDFLARE_ACCESS_KEY_ID',
-      'CLOUDFLARE_SECRET_ACCESS_KEY', 
-      'CLOUDFLARE_ENDPOINT',
-      'CLOUDFLARE_BUCKET_NAME',
-      'CLOUDFLARE_PUBLIC_DOMAIN'
-    ];
-
-    for (const envVar of requiredEnvVars) {
-      if (!process.env[envVar]) {
-        console.error(`Missing environment variable: ${envVar}`);
-        throw new ValidationError(`Server configuration error: Missing ${envVar}`);
-      }
-    }
-
-    console.log("Environment variables check passed");
-    console.log("Cloudflare config:", {
-      endpoint: process.env.CLOUDFLARE_ENDPOINT,
-      bucket: process.env.CLOUDFLARE_BUCKET_NAME,
-      publicDomain: process.env.CLOUDFLARE_PUBLIC_DOMAIN,
-      hasAccessKey: !!process.env.CLOUDFLARE_ACCESS_KEY_ID,
-      hasSecretKey: !!process.env.CLOUDFLARE_SECRET_ACCESS_KEY
-    });
-
     const { fileType, fileName } = req.body;
 
     if (!fileType || !fileName) {
       throw new ValidationError("fileType and fileName are required");
     }
 
+
+
     // Generate a unique filename with extension
     const extension = fileName.split('.').pop();
     const uniqueFileName = `${randomUUID()}.${extension}`;
-
-    console.log("Generating signed URL for:", {
-      bucket: process.env.CLOUDFLARE_BUCKET_NAME,
-      key: uniqueFileName,
-      contentType: fileType
-    });
 
     // Get signed URL for upload
     const url = await getSignedUrl(
@@ -233,31 +198,13 @@ const uploadProductImage = async (
       }
     );
 
-    console.log("Generated signed URL successfully");
-    console.log("Signed URL length:", url.length);
-
-    const publicURL = `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${uniqueFileName}`;
-    
-    console.log("Response data:", {
-      hasUrl: !!url,
-      publicURL: publicURL,
-      uniqueFileName: uniqueFileName
-    });
-
     // Return both the upload URL and the public URL
     res.status(200).json({
       url,
-      publicURL,
+      publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${uniqueFileName}`,
     });
   } catch (error) {
     console.error("Image upload error:", error);
-    if (error instanceof Error) {
-      console.error("Error details:", {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-    }
     next(error);
   }
 };
