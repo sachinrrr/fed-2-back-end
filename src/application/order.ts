@@ -141,7 +141,8 @@ const getSalesData = async (req: Request, res: Response, next: NextFunction) => 
     const daysNumber = parseInt(days as string);
     
     if (isNaN(daysNumber) || daysNumber <= 0) {
-      return res.status(400).json({ error: "Invalid days parameter" });
+      res.status(400).json({ error: "Invalid days parameter" });
+      return;
     }
 
     const endDate = new Date();
