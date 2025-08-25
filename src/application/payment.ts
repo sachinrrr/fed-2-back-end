@@ -115,18 +115,27 @@ const handleStripeWebhook = async (req: Request, res: Response, next: NextFuncti
     // Handle the checkout.session.completed event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as any;
-      console.log("Payment completed for session:", session.id);
+      console.log("🎉 Payment completed for session:", session.id);
+      console.log("Session metadata:", session.metadata);
 
       // Get order ID from metadata
       const orderId = session.metadata?.orderId;
+      console.log("Order ID from metadata:", orderId);
+      
       if (orderId) {
+        console.log("🔍 Looking up order to update payment status...");
         // Update order payment status
         const order = await Order.findById(orderId);
         if (order) {
+          console.log("✅ Found order, current payment status:", order.paymentStatus);
           order.paymentStatus = 'PAID';
           await order.save();
-          console.log("Order payment status updated to PAID:", orderId);
+          console.log("🎉 Order payment status updated to PAID:", orderId);
+        } else {
+          console.error("❌ Order not found for ID:", orderId);
         }
+      } else {
+        console.error("❌ No order ID found in session metadata");
       }
     }
 
@@ -144,4 +153,43 @@ const handleStripeWebhook = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-export { createCheckoutSession, handleStripeWebhook };
+const getCheckoutSessionStatus = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { session_id } = req.query;
+    
+    if (!session_id) {
+      throw new ValidationError("Session ID is required");
+    }
+
+    console.log("🔍 Checking session status for:", session_id);
+
+    // Retrieve the session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(session_id as string);
+    console.log("Session payment status:", session.payment_status);
+    console.log("Session metadata:", session.metadata);
+
+    // If payment is complete, update the order status
+    if (session.payment_status === 'paid' && session.metadata?.orderId) {
+      const orderId = session.metadata.orderId;
+      console.log("🔍 Payment confirmed, updating order:", orderId);
+      
+      const order = await Order.findById(orderId);
+      if (order && order.paymentStatus !== 'PAID') {
+        console.log("✅ Updating order payment status to PAID");
+        order.paymentStatus = 'PAID';
+        await order.save();
+        console.log("🎉 Order payment status updated successfully");
+      }
+    }
+
+    res.status(200).json({
+      payment_status: session.payment_status,
+      order_id: session.metadata?.orderId
+    });
+  } catch (error) {
+    console.error("Get session status error:", error);
+    next(error);
+  }
+};
+
+export { createCheckoutSession, handleStripeWebhook, getCheckoutSessionStatus };
