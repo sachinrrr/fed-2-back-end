@@ -71,8 +71,8 @@ const createCheckoutSession = async (req: Request, res: Response, next: NextFunc
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL}/complete?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
-      cancel_url: `${process.env.FRONTEND_URL}/checkout`,
+      ui_mode: 'embedded',
+      return_url: `${process.env.FRONTEND_URL}/complete?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
       metadata: {
         orderId: orderId.toString(),
       },
