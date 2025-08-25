@@ -6,15 +6,19 @@ import ValidationError from "../domain/errors/validation-error";
 
 const createCheckoutSession = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log("=== CREATE CHECKOUT SESSION STARTED ===");
     const { orderId } = req.body;
+    console.log("Received request body:", req.body);
 
     if (!orderId) {
+      console.log("❌ No orderId provided");
       throw new ValidationError("orderId is required");
     }
 
-    console.log("Creating checkout session for order:", orderId);
+    console.log("✅ Creating checkout session for order:", orderId);
 
     // Get the order details
+    console.log("🔍 Looking up order in database...");
     const order = await Order.findById(orderId)
       .populate({
         path: 'items.productId',
@@ -23,27 +27,46 @@ const createCheckoutSession = async (req: Request, res: Response, next: NextFunc
       .populate('addressId');
 
     if (!order) {
+      console.log("❌ Order not found in database");
       throw new NotFoundError("Order not found");
     }
 
-    console.log("Order found:", order._id);
+    console.log("✅ Order found:", order._id);
+    console.log("Order items count:", order.items?.length || 0);
 
     // Create line items for Stripe
-    const lineItems = order.items.map(item => ({
-      price_data: {
-        currency: 'usd',
-        product_data: {
-          name: (item.productId as any).name,
-          images: (item.productId as any).image ? [(item.productId as any).image] : [],
+    console.log("🔧 Creating line items for Stripe...");
+    const lineItems = order.items.map((item, index) => {
+      console.log(`Item ${index}:`, {
+        productId: item.productId,
+        quantity: item.quantity,
+        productName: (item.productId as any)?.name,
+        productPrice: (item.productId as any)?.price
+      });
+      
+      return {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: (item.productId as any).name,
+            images: (item.productId as any).image ? [(item.productId as any).image] : [],
+          },
+          unit_amount: Math.round((item.productId as any).price * 100), // Convert to cents
         },
-        unit_amount: Math.round((item.productId as any).price * 100), // Convert to cents
-      },
-      quantity: item.quantity,
-    }));
+        quantity: item.quantity,
+      };
+    });
 
-    console.log("Line items created:", lineItems.length);
+    console.log("✅ Line items created:", lineItems.length);
 
     // Create checkout session
+    console.log("🎯 Creating Stripe checkout session...");
+    console.log("Stripe session config:", {
+      lineItemsCount: lineItems.length,
+      successUrl: `${process.env.FRONTEND_URL}/complete?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
+      cancelUrl: `${process.env.FRONTEND_URL}/checkout`
+    });
+    
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
@@ -55,7 +78,7 @@ const createCheckoutSession = async (req: Request, res: Response, next: NextFunc
       },
     });
 
-    console.log("Checkout session created:", session.id);
+    console.log("✅ Checkout session created successfully:", session.id);
 
     res.status(200).json({
       clientSecret: session.client_secret,
