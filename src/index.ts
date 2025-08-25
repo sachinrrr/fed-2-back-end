@@ -4,6 +4,7 @@ import productRouter from "./api/product";
 import categoryRouter from "./api/category";
 import colorRouter from "./api/color";
 import reviewRouter from "./api/review";
+import paymentRouter from "./api/payment";
 import { connectDB } from "./infrastructure/db/index";
 import globalErrorHandlingMiddleware from "./api/middleware/global-error-handling-middleware";
 import cors from "cors";
@@ -26,6 +27,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow common HTTP methods
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Allow necessary headers
 }));
+
+// Add payment routes BEFORE express.json() middleware (for Stripe webhooks)
+app.use("/api/payments", paymentRouter);
 
 // Middleware to parse JSON bodies
 app.use(express.json()); //It conversts the incomign json payload of a  request into a javascript object found in req.body
