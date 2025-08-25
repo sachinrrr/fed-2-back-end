@@ -173,6 +173,12 @@ const uploadProductImage = async (
   next: NextFunction
 ) => {
   try {
+    console.log("Upload image request received:", {
+      body: req.body,
+      headers: req.headers,
+      auth: req.auth
+    });
+
     const { fileType, fileName } = req.body;
 
     if (!fileType || !fileName) {

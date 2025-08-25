@@ -12,12 +12,7 @@ import { clerkMiddleware } from "@clerk/express";
 
 const app = express();
 
-// Middleware to parse JSON bodies
-app.use(express.json()); //It conversts the incomign json payload of a  request into a javascript object found in req.body
-
-app.use(clerkMiddleware());
-
-// CORS configuration to handle both local development and production
+// CORS configuration to handle both local development and production - MUST BE FIRST
 const allowedOrigins: string[] = [
   "http://localhost:5173", // Local development
   "http://localhost:3000", // Alternative local port
@@ -27,8 +22,15 @@ const allowedOrigins: string[] = [
 
 app.use(cors({ 
   origin: allowedOrigins,
-  credentials: true // Allow credentials if needed
+  credentials: true, // Allow credentials if needed
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow common HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Allow necessary headers
 }));
+
+// Middleware to parse JSON bodies
+app.use(express.json()); //It conversts the incomign json payload of a  request into a javascript object found in req.body
+
+app.use(clerkMiddleware());
 
 // app.use((req, res, next) => {
 //   console.log("Hello from pre-middleware");
