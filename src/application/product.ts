@@ -220,7 +220,7 @@ const getTrendingProducts = async (
     console.log("Getting trending products...", { categoryId, limit });
 
     // Aggregate orders to count product purchases
-    let trendingAggregation = [
+    let trendingAggregation: any[] = [
       // Match only paid orders
       {
         $match: {
@@ -340,7 +340,7 @@ const getTrendingProducts = async (
         .limit(additionalProductsNeeded)
         .lean();
 
-      limitedProducts = [...limitedProducts, ...additionalProducts];
+      limitedProducts = [...limitedProducts, ...additionalProducts] as any;
     }
 
     console.log(`Returning ${limitedProducts.length} trending products`);
