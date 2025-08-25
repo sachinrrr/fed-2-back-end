@@ -73,7 +73,8 @@ const handleStripeWebhook = async (req: Request, res: Response, next: NextFuncti
 
   if (!endpointSecret) {
     console.error("STRIPE_WEBHOOK_SECRET not configured");
-    return res.status(400).send('Webhook secret not configured');
+    res.status(400).send('Webhook secret not configured');
+    return;
   }
 
   let event;
@@ -83,7 +84,8 @@ const handleStripeWebhook = async (req: Request, res: Response, next: NextFuncti
     console.log("Webhook event received:", event.type);
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
-    return res.status(400).send(`Webhook Error: ${err}`);
+    res.status(400).send(`Webhook Error: ${err}`);
+    return;
   }
 
   try {
@@ -115,6 +117,7 @@ const handleStripeWebhook = async (req: Request, res: Response, next: NextFuncti
   } catch (error) {
     console.error("Webhook handler error:", error);
     res.status(500).send('Webhook handler failed');
+    return;
   }
 };
 
