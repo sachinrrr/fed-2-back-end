@@ -5,11 +5,15 @@ import Order from "../infrastructure/db/entities/Order";
 import NotFoundError from "../domain/errors/not-found-error";
 import UnauthorizedError from "../domain/errors/unauthorized-error";
 import { getAuth, clerkClient } from "@clerk/express";
+import { validateStockAvailability, restoreProductStock } from "../utils/stockManager";
 
 const createOrder = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = req.body;
     const { userId } = getAuth(req);
+
+    // Validate stock availability before creating the order
+    await validateStockAvailability(data.orderItems);
 
     const address = await Address.create(data.shippingAddress);
     const order = await Order.create({
@@ -329,6 +333,21 @@ const updateOrderStatus = async (req: Request, res: Response, next: NextFunction
     const updateData: any = {};
     if (orderStatus) updateData.orderStatus = orderStatus;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
+
+    // Handle stock restoration for cancelled orders or refunds
+    const needsStockRestore = 
+      (orderStatus === 'CANCELLED' && order.orderStatus !== 'CANCELLED' && order.paymentStatus === 'PAID') ||
+      (paymentStatus === 'REFUNDED' && order.paymentStatus === 'PAID');
+
+    if (needsStockRestore) {
+      try {
+        await restoreProductStock(order.items);
+        console.log(`📦 Stock restored for ${orderStatus === 'CANCELLED' ? 'cancelled' : 'refunded'} order:`, id);
+      } catch (stockError) {
+        console.error("❌ Error restoring product stock:", stockError);
+        // Continue with order update even if stock restoration fails
+      }
+    }
 
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, { new: true })
       .populate({

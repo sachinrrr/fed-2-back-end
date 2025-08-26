@@ -3,6 +3,7 @@ import stripe from "../infrastructure/stripe";
 import Order from "../infrastructure/db/entities/Order";
 import NotFoundError from "../domain/errors/not-found-error";
 import ValidationError from "../domain/errors/validation-error";
+import { reduceProductStock } from "../utils/stockManager";
 
 const createCheckoutSession = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -124,13 +125,29 @@ const handleStripeWebhook = async (req: Request, res: Response, next: NextFuncti
       
       if (orderId) {
         console.log("🔍 Looking up order to update payment status...");
-        // Update order payment status
+        // Update order payment status and reduce stock
         const order = await Order.findById(orderId);
         if (order) {
           console.log("✅ Found order, current payment status:", order.paymentStatus);
-          order.paymentStatus = 'PAID';
-          await order.save();
-          console.log("🎉 Order payment status updated to PAID:", orderId);
+          
+          // Only process if payment status is not already PAID (to prevent duplicate processing)
+          if (order.paymentStatus !== 'PAID') {
+            order.paymentStatus = 'PAID';
+            await order.save();
+            console.log("🎉 Order payment status updated to PAID:", orderId);
+            
+            // Reduce product stock for each item in the order
+            try {
+              await reduceProductStock(order.items);
+              console.log("📦 Product stock reduced successfully for order:", orderId);
+            } catch (stockError) {
+              console.error("❌ Error reducing product stock:", stockError);
+              // Note: Payment has already been processed, so we log the error but don't fail the webhook
+              // In a production system, you might want to implement compensation logic here
+            }
+          } else {
+            console.log("ℹ️ Order payment already marked as PAID, skipping stock reduction");
+          }
         } else {
           console.error("❌ Order not found for ID:", orderId);
         }
@@ -179,6 +196,15 @@ const getCheckoutSessionStatus = async (req: Request, res: Response, next: NextF
         order.paymentStatus = 'PAID';
         await order.save();
         console.log("🎉 Order payment status updated successfully");
+        
+        // Reduce product stock for each item in the order
+        try {
+          await reduceProductStock(order.items);
+          console.log("📦 Product stock reduced successfully for order:", orderId);
+        } catch (stockError) {
+          console.error("❌ Error reducing product stock:", stockError);
+          // Note: Payment has already been processed, so we log the error but continue
+        }
       }
     }
 
