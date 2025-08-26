@@ -12,7 +12,6 @@ const createOrder = async (req: Request, res: Response, next: NextFunction) => {
     const data = req.body;
     const { userId } = getAuth(req);
 
-    // Validate stock availability before creating the order
     await validateStockAvailability(data.orderItems);
 
     const address = await Address.create(data.shippingAddress);
@@ -85,20 +84,20 @@ const getAllOrders = async (req: Request, res: Response, next: NextFunction) => 
       })
       .populate({
         path: 'addressId',
-        select: 'line_1 line_2 city phone', // Include phone field from address
+        select: 'line_1 line_2 city phone', 
         options: { lean: true }
       })
-      .sort({ _id: -1 }) // Sort by ObjectId since timestamps are missing
+      .sort({ _id: -1 }) 
       .lean();
 
-    // Enhance orders with customer data from Clerk and computed dates
+    
     const ordersWithCustomerData = await Promise.all(
       orders.map(async (order) => {
         let customerEmail = null;
         let customerName = null;
         
         try {
-          // Get user details from Clerk
+          
           if (order.userId) {
             const user = await clerkClient.users.getUser(order.userId);
             customerEmail = user.emailAddresses?.[0]?.emailAddress || null;
@@ -107,7 +106,7 @@ const getAllOrders = async (req: Request, res: Response, next: NextFunction) => 
               : user.firstName || user.lastName || null;
           }
         } catch (error) {
-          console.log(`Could not fetch user data for ${order.userId}:`, error instanceof Error ? error.message : 'Unknown error');
+          // Silently handle user fetch errors
         }
 
         return {
@@ -120,19 +119,10 @@ const getAllOrders = async (req: Request, res: Response, next: NextFunction) => 
       })
     );
 
-    console.log(`Found ${orders.length} orders`);
-    if (orders.length > 0) {
-      console.log("Sample order with customer data:", {
-        orderId: orders[0]._id,
-        customerEmail: ordersWithCustomerData[0].customerEmail,
-        customerPhone: ordersWithCustomerData[0].customerPhone,
-        hasAddress: !!orders[0].addressId
-      });
-    }
+
 
     res.status(200).json(ordersWithCustomerData);
   } catch (error) {
-    console.error("Error getting all orders:", error);
     next(error);
   }
 };
@@ -153,23 +143,23 @@ const getSalesData = async (req: Request, res: Response, next: NextFunction) => 
     endDate.setHours(23, 59, 59, 999);
     
     const startDate = new Date();
-    // Temporarily look back 90 days to catch existing orders
+    
     startDate.setDate(startDate.getDate() - 90);
     startDate.setHours(0, 0, 0, 0);
 
     console.log("Date range:", { startDate, endDate });
 
-    // First, let's check if we have any orders at all
+    
     const totalOrders = await Order.countDocuments();
     console.log("Total orders in database:", totalOrders);
 
-    // Let's also check orders by payment status
+    
     const paidOrders = await Order.countDocuments({ paymentStatus: "PAID" });
     const pendingOrders = await Order.countDocuments({ paymentStatus: "PENDING" });
     const refundedOrders = await Order.countDocuments({ paymentStatus: "REFUNDED" });
     console.log("Orders by payment status:", { paidOrders, pendingOrders, refundedOrders });
 
-    // Check orders in date range
+    
     const ordersInRange = await Order.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate }
     });
@@ -179,7 +169,7 @@ const getSalesData = async (req: Request, res: Response, next: NextFunction) => 
     });
     console.log("Orders in date range:", { ordersInRange, paidOrdersInRange });
 
-    // Also check recent order dates to understand the actual date range
+    
     const mostRecentOrder = await Order.findOne().sort({ createdAt: -1 }).select('createdAt');
     const oldestOrder = await Order.findOne().sort({ createdAt: 1 }).select('createdAt');
     console.log("Actual order date range:", { 
@@ -187,7 +177,7 @@ const getSalesData = async (req: Request, res: Response, next: NextFunction) => 
       newest: mostRecentOrder?.createdAt 
     });
 
-    // Let's also check a sample order structure
+    
     const sampleOrder = await Order.findOne().lean();
     console.log("Sample order structure:", {
       _id: sampleOrder?._id,
@@ -196,18 +186,18 @@ const getSalesData = async (req: Request, res: Response, next: NextFunction) => 
       hasTimestamps: !!(sampleOrder?.createdAt || sampleOrder?.updatedAt)
     });
 
-    // Real aggregation with product prices - using ObjectId timestamp since createdAt is missing
+    
     const salesData = await Order.aggregate([
       {
         $match: {
-          // Since orders don't have createdAt timestamps, we'll get all paid orders
-          paymentStatus: "PAID", // Only count paid orders
-          orderStatus: { $ne: "CANCELLED" } // Exclude cancelled orders
+          
+          paymentStatus: "PAID", 
+          orderStatus: { $ne: "CANCELLED" } 
         }
       },
       {
         $addFields: {
-          // Extract date from ObjectId timestamp
+          
           createdDate: {
             $dateToString: {
               format: "%Y-%m-%d",
@@ -271,7 +261,7 @@ const getSalesData = async (req: Request, res: Response, next: NextFunction) => 
 
     console.log("Raw sales data:", salesData);
 
-    // Return the raw sales data from database - no fallback, no date manipulation
+    
     res.status(200).json(salesData);
   } catch (error) {
     console.error("Error in getSalesData:", error);
@@ -279,24 +269,24 @@ const getSalesData = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
-// Diagnostic function to check database content
+
 const debugOrderData = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Get all orders with full details
+    
     const allOrders = await Order.find()
       .populate({
         path: 'items.productId',
         select: 'name price'
       })
-      .limit(5) // Limit to first 5 for debugging
+      .limit(5) 
       .lean();
 
-    // Get basic counts
+    
     const totalOrders = await Order.countDocuments();
     const paidOrders = await Order.countDocuments({ paymentStatus: "PAID" });
     const pendingOrders = await Order.countDocuments({ paymentStatus: "PENDING" });
     
-    // Get recent orders with creation dates
+    
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(3)
@@ -319,7 +309,7 @@ const debugOrderData = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
-// Update order status (Admin only)
+
 const updateOrderStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -334,7 +324,7 @@ const updateOrderStatus = async (req: Request, res: Response, next: NextFunction
     if (orderStatus) updateData.orderStatus = orderStatus;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
 
-    // Handle stock restoration for cancelled orders or refunds
+    
     const needsStockRestore = 
       (orderStatus === 'CANCELLED' && order.orderStatus !== 'CANCELLED' && order.paymentStatus === 'PAID') ||
       (paymentStatus === 'REFUNDED' && order.paymentStatus === 'PAID');
@@ -342,10 +332,10 @@ const updateOrderStatus = async (req: Request, res: Response, next: NextFunction
     if (needsStockRestore) {
       try {
         await restoreProductStock(order.items);
-        console.log(`📦 Stock restored for ${orderStatus === 'CANCELLED' ? 'cancelled' : 'refunded'} order:`, id);
+        console.log(`Stock restored for ${orderStatus === 'CANCELLED' ? 'cancelled' : 'refunded'} order:`, id);
       } catch (stockError) {
-        console.error("❌ Error restoring product stock:", stockError);
-        // Continue with order update even if stock restoration fails
+        console.error("Error restoring product stock:", stockError);
+        
       }
     }
 

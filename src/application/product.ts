@@ -94,22 +94,14 @@ const createProduct = async (
   next: NextFunction
 ) => {
   try {
-    console.log("Request body:", JSON.stringify(req.body, null, 2));
-    
     const result = CreateProductDTO.safeParse(req.body);
     if (!result.success) {
-      console.log("Validation error:", result.error);
       throw new ValidationError(result.error.message);
     }
-
-    console.log("Validated data:", JSON.stringify(result.data, null, 2));
     
     const product = await Product.create(result.data);
-    console.log("Product created:", product);
-    
     res.status(201).send();
   } catch (error) {
-    console.log("Create product error:", error);
     next(error);
   }
 };
@@ -179,13 +171,9 @@ const uploadProductImage = async (
       throw new ValidationError("fileType and fileName are required");
     }
 
-
-
-    // Generate a unique filename with extension
     const extension = fileName.split('.').pop();
     const uniqueFileName = `${randomUUID()}.${extension}`;
 
-    // Get signed URL for upload
     const url = await getSignedUrl(
       S3,
       new PutObjectCommand({
@@ -194,17 +182,15 @@ const uploadProductImage = async (
         ContentType: fileType,
       }),
       {
-        expiresIn: 3600, // 1 hour
+        expiresIn: 3600,
       }
     );
 
-    // Return both the upload URL and the public URL
     res.status(200).json({
       url,
       publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${uniqueFileName}`,
     });
   } catch (error) {
-    console.error("Image upload error:", error);
     next(error);
   }
 };
@@ -216,8 +202,6 @@ const getTrendingProducts = async (
 ) => {
   try {
     const { categoryId, limit = 8 } = req.query;
-
-    console.log("Getting trending products...", { categoryId, limit });
 
     // Aggregate orders to count product purchases
     let trendingAggregation: any[] = [
@@ -308,8 +292,6 @@ const getTrendingProducts = async (
 
     const trendingProducts = await Order.aggregate(trendingAggregation);
 
-    console.log(`Found ${trendingProducts.length} trending products`);
-
     // Populate category and color information
     const populatedProducts = await Product.populate(trendingProducts, [
       { path: 'categoryId', select: 'name' },
@@ -319,10 +301,8 @@ const getTrendingProducts = async (
     // Limit to requested number
     let limitedProducts = populatedProducts.slice(0, parseInt(limit as string));
 
-    // If we don't have enough trending products, fill with regular products
+    // Fill with regular products if needed
     if (limitedProducts.length < parseInt(limit as string)) {
-      console.log(`Only found ${limitedProducts.length} trending products, filling with regular products...`);
-      
       const existingProductIds = limitedProducts.map(p => p._id.toString());
       const additionalProductsNeeded = parseInt(limit as string) - limitedProducts.length;
       
@@ -343,10 +323,8 @@ const getTrendingProducts = async (
       limitedProducts = [...limitedProducts, ...additionalProducts] as any;
     }
 
-    console.log(`Returning ${limitedProducts.length} trending products`);
     res.json(limitedProducts);
   } catch (error) {
-    console.error("Error getting trending products:", error);
     next(error);
   }
 };

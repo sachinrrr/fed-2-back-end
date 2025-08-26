@@ -7,19 +7,13 @@ import { reduceProductStock } from "../utils/stockManager";
 
 const createCheckoutSession = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log("=== CREATE CHECKOUT SESSION STARTED ===");
     const { orderId } = req.body;
-    console.log("Received request body:", req.body);
 
     if (!orderId) {
-      console.log("❌ No orderId provided");
       throw new ValidationError("orderId is required");
     }
 
-    console.log("✅ Creating checkout session for order:", orderId);
 
-    // Get the order details
-    console.log("🔍 Looking up order in database...");
     const order = await Order.findById(orderId)
       .populate({
         path: 'items.productId',
@@ -28,45 +22,22 @@ const createCheckoutSession = async (req: Request, res: Response, next: NextFunc
       .populate('addressId');
 
     if (!order) {
-      console.log("❌ Order not found in database");
       throw new NotFoundError("Order not found");
     }
 
-    console.log("✅ Order found:", order._id);
-    console.log("Order items count:", order.items?.length || 0);
-
-    // Create line items for Stripe
-    console.log("🔧 Creating line items for Stripe...");
-    const lineItems = order.items.map((item, index) => {
-      console.log(`Item ${index}:`, {
-        productId: item.productId,
-        quantity: item.quantity,
-        productName: (item.productId as any)?.name,
-        productPrice: (item.productId as any)?.price
-      });
-      
-      return {
+    const lineItems = order.items.map((item) => ({
         price_data: {
           currency: 'usd',
           product_data: {
             name: (item.productId as any).name,
             images: (item.productId as any).image ? [(item.productId as any).image] : [],
           },
-          unit_amount: Math.round((item.productId as any).price * 100), // Convert to cents
-        },
-        quantity: item.quantity,
-      };
-    });
+                  unit_amount: Math.round((item.productId as any).price * 100),
+      },
+      quantity: item.quantity,
+    }));
 
-    console.log("✅ Line items created:", lineItems.length);
 
-    // Create checkout session
-    console.log("🎯 Creating Stripe checkout session...");
-    console.log("Stripe session config:", {
-      lineItemsCount: lineItems.length,
-      successUrl: `${process.env.FRONTEND_URL}/complete?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
-      cancelUrl: `${process.env.FRONTEND_URL}/checkout`
-    });
     
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -79,14 +50,13 @@ const createCheckoutSession = async (req: Request, res: Response, next: NextFunc
       },
     });
 
-    console.log("✅ Checkout session created successfully:", session.id);
+
 
     res.status(200).json({
       clientSecret: session.client_secret,
       sessionId: session.id,
     });
   } catch (error) {
-    console.error("Create checkout session error:", error);
     next(error);
   }
 };
@@ -105,66 +75,35 @@ const handleStripeWebhook = async (req: Request, res: Response, next: NextFuncti
 
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-    console.log("Webhook event received:", event.type);
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
     res.status(400).send(`Webhook Error: ${err}`);
     return;
   }
 
   try {
-    // Handle the checkout.session.completed event
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as any;
-      console.log("🎉 Payment completed for session:", session.id);
-      console.log("Session metadata:", session.metadata);
-
-      // Get order ID from metadata
       const orderId = session.metadata?.orderId;
-      console.log("Order ID from metadata:", orderId);
       
       if (orderId) {
-        console.log("🔍 Looking up order to update payment status...");
-        // Update order payment status and reduce stock
         const order = await Order.findById(orderId);
-        if (order) {
-          console.log("✅ Found order, current payment status:", order.paymentStatus);
+        if (order && order.paymentStatus !== 'PAID') {
+          order.paymentStatus = 'PAID';
+          await order.save();
           
-          // Only process if payment status is not already PAID (to prevent duplicate processing)
-          if (order.paymentStatus !== 'PAID') {
-            order.paymentStatus = 'PAID';
-            await order.save();
-            console.log("🎉 Order payment status updated to PAID:", orderId);
-            
-            // Reduce product stock for each item in the order
-            try {
-              await reduceProductStock(order.items);
-              console.log("📦 Product stock reduced successfully for order:", orderId);
-            } catch (stockError) {
-              console.error("❌ Error reducing product stock:", stockError);
-              // Note: Payment has already been processed, so we log the error but don't fail the webhook
-              // In a production system, you might want to implement compensation logic here
-            }
-          } else {
-            console.log("ℹ️ Order payment already marked as PAID, skipping stock reduction");
+          try {
+            await reduceProductStock(order.items);
+          } catch (stockError) {
+            // Payment processed, log error but don't fail webhook
           }
-        } else {
-          console.error("❌ Order not found for ID:", orderId);
         }
-      } else {
-        console.error("❌ No order ID found in session metadata");
       }
     }
 
-    // Handle payment_intent.succeeded event
-    if (event.type === 'payment_intent.succeeded') {
-      const paymentIntent = event.data.object as any;
-      console.log("Payment intent succeeded:", paymentIntent.id);
-    }
+
 
     res.json({received: true});
   } catch (error) {
-    console.error("Webhook handler error:", error);
     res.status(500).send('Webhook handler failed');
     return;
   }
@@ -178,32 +117,20 @@ const getCheckoutSessionStatus = async (req: Request, res: Response, next: NextF
       throw new ValidationError("Session ID is required");
     }
 
-    console.log("🔍 Checking session status for:", session_id);
-
-    // Retrieve the session from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id as string);
-    console.log("Session payment status:", session.payment_status);
-    console.log("Session metadata:", session.metadata);
 
-    // If payment is complete, update the order status
     if (session.payment_status === 'paid' && session.metadata?.orderId) {
       const orderId = session.metadata.orderId;
-      console.log("🔍 Payment confirmed, updating order:", orderId);
-      
       const order = await Order.findById(orderId);
+      
       if (order && order.paymentStatus !== 'PAID') {
-        console.log("✅ Updating order payment status to PAID");
         order.paymentStatus = 'PAID';
         await order.save();
-        console.log("🎉 Order payment status updated successfully");
         
-        // Reduce product stock for each item in the order
         try {
           await reduceProductStock(order.items);
-          console.log("📦 Product stock reduced successfully for order:", orderId);
         } catch (stockError) {
-          console.error("❌ Error reducing product stock:", stockError);
-          // Note: Payment has already been processed, so we log the error but continue
+          // Payment processed, continue
         }
       }
     }
@@ -213,7 +140,6 @@ const getCheckoutSessionStatus = async (req: Request, res: Response, next: NextF
       order_id: session.metadata?.orderId
     });
   } catch (error) {
-    console.error("Get session status error:", error);
     next(error);
   }
 };
