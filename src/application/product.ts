@@ -3,7 +3,7 @@ import Order from "../infrastructure/db/entities/Order";
 import ValidationError from "../domain/errors/validation-error";
 import NotFoundError from "../domain/errors/not-found-error";
 import { Request, Response, NextFunction } from "express";
-import { CreateProductDTO } from "../domain/dto/product";
+import { CreateProductDTO, UpdateProductDTO } from "../domain/dto/product";
 import { randomUUID } from "crypto";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -131,12 +131,25 @@ const updateProductById = async (
   next: NextFunction
 ) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    // Validate the update data
+    const result = UpdateProductDTO.safeParse(req.body);
+    if (!result.success) {
+      throw new ValidationError(result.error.message);
+    }
+
+    const product = await Product.findByIdAndUpdate(
+      req.params.id, 
+      result.data, 
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).populate("categoryId", "name").populate("colorId", "name hexCode");
+    
     if (!product) {
       throw new NotFoundError("Product not found");
     }
+    
     res.status(200).json(product);
   } catch (error) {
     next(error);

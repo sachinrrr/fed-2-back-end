@@ -6,8 +6,18 @@ const CreateProductDTO = z.object({
   name: z.string().min(1),
   description: z.string().min(1, "Description is required"),
   image: z.string().min(1),
-  stock: z.number(),
+  stock: z.number().nonnegative(),
   price: z.number().nonnegative(),
 });
 
-export { CreateProductDTO };
+const UpdateProductDTO = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  price: z.number().nonnegative().optional(),
+  stock: z.number().nonnegative().optional(),
+  categoryId: z.string().min(1).optional(),
+  colorId: z.string().optional(),
+  image: z.string().min(1).optional(),
+});
+
+export { CreateProductDTO, UpdateProductDTO };

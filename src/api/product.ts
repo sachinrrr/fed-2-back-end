@@ -26,8 +26,8 @@ productRouter.get("/trending", getTrendingProducts);
 productRouter
   .route("/:id")
   .get(getProductById)
-  .put(updateProductById)
-  .delete(deleteProductById);
+  .put(isAuthenticated, isAdmin, updateProductById)
+  .delete(isAuthenticated, isAdmin, deleteProductById);
 
 productRouter
   .route("/images")
