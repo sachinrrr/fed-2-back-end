@@ -3,18 +3,23 @@ import Product from "../infrastructure/db/entities/Product";
 
 import { Request, Response, NextFunction } from "express";
 import NotFoundError from "../domain/errors/not-found-error";
+import { getAuth, clerkClient } from "@clerk/express";
 
 const createReview = async (req:Request, res:Response, next:NextFunction) => {
   try {
     const data = req.body;
-    const userId = req.auth?.userId;
-    const userName = req.auth?.firstName && req.auth?.lastName 
-      ? `${req.auth.firstName} ${req.auth.lastName}` 
-      : req.auth?.emailAddress || 'Anonymous';
+    const { userId } = getAuth(req);
 
     if (!userId) {
-      return res.status(401).json({ message: "Authentication required" });
+      res.status(401).json({ message: "Authentication required" });
+      return;
     }
+
+    // Get user details from Clerk
+    const user = await clerkClient.users.getUser(userId);
+    const userName = user.firstName && user.lastName 
+      ? `${user.firstName} ${user.lastName}` 
+      : user.emailAddresses[0]?.emailAddress || 'Anonymous';
 
     const review = await Review.create({
       review: data.review,
