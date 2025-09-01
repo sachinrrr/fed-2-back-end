@@ -201,8 +201,8 @@ const uploadProductImage = async (
 
     res.status(200).json({
       url,
-      publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${uniqueFileName}`,
-    });
+      publicURL: `${process.env.CLOUDFLARE_PUBLIC_DOMAIN}/${process.env.CLOUDFLARE_BUCKET_NAME}/${uniqueFileName}`,
+    });    
   } catch (error) {
     next(error);
   }
