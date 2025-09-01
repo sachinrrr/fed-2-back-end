@@ -7,10 +7,10 @@ import NotFoundError from "../domain/errors/not-found-error";
 const createReview = async (req:Request, res:Response, next:NextFunction) => {
   try {
     const data = req.body;
-    const userId = req.user?.userId;
-    const userName = req.user?.firstName && req.user?.lastName 
-      ? `${req.user.firstName} ${req.user.lastName}` 
-      : req.user?.emailAddress || 'Anonymous';
+    const userId = req.auth?.userId;
+    const userName = req.auth?.firstName && req.auth?.lastName 
+      ? `${req.auth.firstName} ${req.auth.lastName}` 
+      : req.auth?.emailAddress || 'Anonymous';
 
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
