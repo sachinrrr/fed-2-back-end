@@ -4,6 +4,7 @@ import NotFoundError from "../domain/errors/not-found-error";
 import { Request, Response, NextFunction } from "express";
 import { CreateColorDTO } from "../domain/dto/color";
 
+//get all colors
 const getAllColors = async (
   req: Request,
   res: Response,
@@ -17,6 +18,7 @@ const getAllColors = async (
   }
 };
 
+//create color
 const createColor = async (
   req: Request,
   res: Response,
@@ -35,6 +37,7 @@ const createColor = async (
   }
 };
 
+//get color by id
 const getColorById = async (
   req: Request,
   res: Response,

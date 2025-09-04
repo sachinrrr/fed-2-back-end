@@ -7,6 +7,7 @@ import UnauthorizedError from "../domain/errors/unauthorized-error";
 import { getAuth, clerkClient } from "@clerk/express";
 import { validateStockAvailability, restoreProductStock } from "../utils/stockManager";
 
+//create order
 const createOrder = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = req.body;
@@ -27,6 +28,7 @@ const createOrder = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+//get order by id
 const getOrder = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getAuth(req);
@@ -54,6 +56,8 @@ const getOrder = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+
+//get user orders
 const getUserOrders = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = getAuth(req);
@@ -72,6 +76,7 @@ const getUserOrders = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+//get all orders
 const getAllOrders = async (req: Request, res: Response, next: NextFunction) => {
   try {
     console.log("Getting all orders with complete data population...");
@@ -106,7 +111,7 @@ const getAllOrders = async (req: Request, res: Response, next: NextFunction) => 
               : user.firstName || user.lastName || null;
           }
         } catch (error) {
-          // Silently handle user fetch errors
+          
         }
 
         return {
@@ -127,6 +132,7 @@ const getAllOrders = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
+//get sales data
 const getSalesData = async (req: Request, res: Response, next: NextFunction) => {
   try {
     console.log("getSalesData called with query:", req.query);
@@ -269,47 +275,7 @@ const getSalesData = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
-
-const debugOrderData = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    
-    const allOrders = await Order.find()
-      .populate({
-        path: 'items.productId',
-        select: 'name price'
-      })
-      .limit(5) 
-      .lean();
-
-    
-    const totalOrders = await Order.countDocuments();
-    const paidOrders = await Order.countDocuments({ paymentStatus: "PAID" });
-    const pendingOrders = await Order.countDocuments({ paymentStatus: "PENDING" });
-    
-    
-    const recentOrders = await Order.find()
-      .sort({ createdAt: -1 })
-      .limit(3)
-      .select('createdAt paymentStatus orderStatus items')
-      .lean();
-
-    const debugInfo = {
-      totalOrders,
-      paidOrders,
-      pendingOrders,
-      sampleOrders: allOrders,
-      recentOrders,
-      note: "This is debug data to understand your database structure"
-    };
-
-    res.status(200).json(debugInfo);
-  } catch (error) {
-    console.error("Error in debugOrderData:", error);
-    next(error);
-  }
-};
-
-
+//update order status
 const updateOrderStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -352,4 +318,4 @@ const updateOrderStatus = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export { createOrder, getOrder, getUserOrders, getAllOrders, getSalesData, debugOrderData, updateOrderStatus };
+export { createOrder, getOrder, getUserOrders, getAllOrders, getSalesData, updateOrderStatus };

@@ -15,31 +15,25 @@ const app = express();
 
 // CORS configuration to handle both local development and production - MUST BE FIRST
 const allowedOrigins: string[] = [
-  "http://localhost:5173", // Local development
-  "http://localhost:3000", // Alternative local port
-  "https://fed-mebius.netlify.app", // Production frontend
-  process.env.FRONTEND_URL || "" // Environment variable fallback
-].filter((origin): origin is string => Boolean(origin)); // Remove any empty strings
+  "http://localhost:5173", 
+  "https://fed-mebius.netlify.app", 
+  process.env.FRONTEND_URL || "" 
+].filter((origin): origin is string => Boolean(origin)); 
 
 app.use(cors({ 
   origin: allowedOrigins,
-  credentials: true, // Allow credentials if needed
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allow common HTTP methods
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], // Allow necessary headers
+  credentials: true, 
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'], 
 }));
 
 app.use(clerkMiddleware());
 
-// Add payment routes (webhook handles its own raw body parsing)
+// Add payment routes 
 app.use("/api/payments", paymentRouter);
 
 // Middleware to parse JSON bodies
 app.use(express.json()); //It conversts the incomign json payload of a  request into a javascript object found in req.body
-
-// app.use((req, res, next) => {
-//   console.log("Hello from pre-middleware");
-//   next();
-// });
 
 app.use("/api/products", productRouter);
 app.use("/api/categories", categoryRouter);

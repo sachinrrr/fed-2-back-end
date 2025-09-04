@@ -8,12 +8,6 @@ interface OrderItem {
   quantity: number;
 }
 
-/**
- * Validates that all products in the order have sufficient stock
- * @param orderItems - Array of order items with productId and quantity
- * @throws ValidationError if any product has insufficient stock
- * @throws NotFoundError if any product is not found
- */
 export const validateStockAvailability = async (orderItems: OrderItem[]): Promise<void> => {
   for (const item of orderItems) {
     const product = await Product.findById(item.productId);
@@ -30,13 +24,6 @@ export const validateStockAvailability = async (orderItems: OrderItem[]): Promis
   }
 };
 
-/**
- * Reduces product stock for all items in an order
- * Uses atomic operations to prevent race conditions
- * @param orderItems - Array of order items with productId and quantity
- * @throws ValidationError if any product has insufficient stock
- * @throws NotFoundError if any product is not found
- */
 export const reduceProductStock = async (orderItems: OrderItem[]): Promise<void> => {
   // Use a session for atomic operations
   const session = await mongoose.startSession();
@@ -78,10 +65,6 @@ export const reduceProductStock = async (orderItems: OrderItem[]): Promise<void>
   }
 };
 
-/**
- * Restores product stock for all items in an order (used for order cancellation or refunds)
- * @param orderItems - Array of order items with productId and quantity
- */
 export const restoreProductStock = async (orderItems: OrderItem[]): Promise<void> => {
   // Use a session for atomic operations
   const session = await mongoose.startSession();

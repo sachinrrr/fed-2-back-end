@@ -4,6 +4,7 @@ import NotFoundError from "../domain/errors/not-found-error";
 
 import { Request, Response, NextFunction } from "express";
 
+//get all categories
 const getAllCategories = async (
   req: Request,
   res: Response,
@@ -17,6 +18,7 @@ const getAllCategories = async (
   }
 };
 
+//create category
 const createCategory = async (
   req: Request,
   res: Response,
@@ -34,6 +36,7 @@ const createCategory = async (
   }
 };
 
+//get category by id
 const getCategoryById = async (
   req: Request,
   res: Response,
@@ -50,6 +53,7 @@ const getCategoryById = async (
   }
 };
 
+//update category by id
 const updateCategoryById = async (
   req: Request,
   res: Response,
@@ -68,6 +72,7 @@ const updateCategoryById = async (
   }
 };
 
+//delete category by id
 const deleteCategoryById = async (
   req: Request,
   res: Response,

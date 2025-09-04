@@ -94,7 +94,7 @@ const handleStripeWebhook = async (req: Request, res: Response, next: NextFuncti
           try {
             await reduceProductStock(order.items);
           } catch (stockError) {
-            // Payment processed, log error but don't fail webhook
+            
           }
         }
       }
@@ -130,7 +130,7 @@ const getCheckoutSessionStatus = async (req: Request, res: Response, next: NextF
         try {
           await reduceProductStock(order.items);
         } catch (stockError) {
-          // Payment processed, continue
+          
         }
       }
     }

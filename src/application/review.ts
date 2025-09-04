@@ -1,6 +1,5 @@
 import Review from "../infrastructure/db/entities/Review";
 import Product from "../infrastructure/db/entities/Product";
-
 import { Request, Response, NextFunction } from "express";
 import NotFoundError from "../domain/errors/not-found-error";
 import { getAuth, clerkClient } from "@clerk/express";

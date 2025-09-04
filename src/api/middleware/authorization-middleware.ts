@@ -15,10 +15,6 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
     const user = await clerkClient.users.getUser(auth.userId);
     const userIsAdmin = user.publicMetadata?.role === "admin";
 
-    console.log("User ID:", auth.userId);
-    console.log("User metadata:", user.publicMetadata);
-    console.log("Is admin:", userIsAdmin);
-
     if (!userIsAdmin) {
       throw new ForbiddenError("Forbidden");
     }

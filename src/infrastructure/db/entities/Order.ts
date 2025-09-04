@@ -39,7 +39,7 @@ const OrderSchema = new mongoose.Schema({
     default: "PENDING",
   },
 }, {
-  timestamps: true, // This adds createdAt and updatedAt fields
+  timestamps: true, 
 });
 
 const Order = mongoose.model("Order", OrderSchema);

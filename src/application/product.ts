@@ -10,6 +10,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import S3 from "../infrastructure/s3";
 import mongoose from "mongoose";
 
+//get all products
 const getAllProducts = async (
   req: Request,
   res: Response,
@@ -55,6 +56,7 @@ const getAllProducts = async (
   }
 };
 
+//get products for search query
 const getProductsForSearchQuery = async (
   req: Request,
   res: Response,
@@ -88,6 +90,7 @@ const getProductsForSearchQuery = async (
   }
 };
 
+//create product
 const createProduct = async (
   req: Request,
   res: Response,
@@ -106,6 +109,7 @@ const createProduct = async (
   }
 };
 
+//get product by id
 const getProductById = async (
   req: Request,
   res: Response,
@@ -125,6 +129,7 @@ const getProductById = async (
   }
 };
 
+//update product by id
 const updateProductById = async (
   req: Request,
   res: Response,
@@ -156,6 +161,7 @@ const updateProductById = async (
   }
 };
 
+//delete product by id
 const deleteProductById = async (
   req: Request,
   res: Response,
@@ -172,6 +178,7 @@ const deleteProductById = async (
   }
 };
 
+//upload product image
 const uploadProductImage = async (
   req: Request,
   res: Response,
@@ -208,6 +215,7 @@ const uploadProductImage = async (
   }
 };
 
+//get trending products
 const getTrendingProducts = async (
   req: Request,
   res: Response,
@@ -230,10 +238,10 @@ const getTrendingProducts = async (
       }
     ];
 
-    // Add category filtering if specified
+    // Add category filtering 
     if (categoryId && categoryId !== "ALL" && categoryId !== "") {
       trendingAggregation.push(
-        // Lookup product details early for category filtering
+       
         {
           $lookup: {
             from: "products",
@@ -273,7 +281,7 @@ const getTrendingProducts = async (
       },
       // Limit results
       {
-        $limit: parseInt(limit as string) * 2 // Get more than needed in case some products don't exist
+        $limit: parseInt(limit as string) * 2 
       },
       // Lookup product details
       {

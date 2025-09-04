@@ -17,7 +17,7 @@ const productRouter = express.Router();
 productRouter
   .route("/")
   .get(getAllProducts)
-  .post(isAuthenticated, createProduct);
+  .post(isAuthenticated,isAdmin, createProduct);
 
 productRouter.get("/search", getProductsForSearchQuery);
 
