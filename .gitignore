@@ -1,3 +1,5 @@
 node_modules
 .env
 seedColors.js
+seed.ts
+seedColors.ts

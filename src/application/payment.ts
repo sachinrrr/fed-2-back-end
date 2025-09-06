@@ -5,6 +5,7 @@ import NotFoundError from "../domain/errors/not-found-error";
 import ValidationError from "../domain/errors/validation-error";
 import { reduceProductStock } from "../utils/stockManager";
 
+//create checkout session
 const createCheckoutSession = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { orderId } = req.body;
